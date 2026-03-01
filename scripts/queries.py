@@ -35,7 +35,7 @@ Q2 = {
             c.account_type,
             ROUND(SUM(a.account_balance), 2)  AS total_balance,
             ROUND(AVG(a.account_balance), 2)  AS avg_balance,
-            COUNT(c.customer_id)              AS num_customers
+            COUNT(c.customer_id)              AS total_customers
         FROM customers c
         JOIN accounts a ON c.customer_id = a.customer_id
         GROUP BY c.account_type
@@ -88,13 +88,13 @@ Q5 = {
     "description": "What is the total transaction volume (sum of amounts) by transaction type?",
     "sql": """
         SELECT
-            txn_type,
+            txn_type                      AS transaction_type,
             COUNT(*)                      AS total_transactions,
-            ROUND(SUM(amount), 2)         AS total_volume,
+            ROUND(SUM(amount), 2)         AS total_transaction_volume,
             ROUND(AVG(amount), 2)         AS avg_amount
         FROM transactions
         GROUP BY txn_type
-        ORDER BY total_volume DESC;
+        ORDER BY total_transaction_volume DESC;
     """
 }
 
@@ -103,13 +103,13 @@ Q6 = {
     "description": "How many failed transactions occurred for each transaction type?",
     "sql": """
         SELECT
-            txn_type,
-            COUNT(*)              AS failed_count,
-            ROUND(SUM(amount), 2) AS total_failed_amount
+            txn_type                      AS transaction_type,
+            COUNT(*)                      AS failed_transactions,
+            ROUND(SUM(amount), 2)         AS total_failed_amount
         FROM transactions
         WHERE LOWER(status) = 'failed'
         GROUP BY txn_type
-        ORDER BY failed_count DESC;
+        ORDER BY failed_transactions DESC;
     """
 }
 
@@ -118,12 +118,12 @@ Q7 = {
     "description": "What is the total number of transactions per transaction type?",
     "sql": """
         SELECT
-            txn_type,
-            COUNT(*) AS transaction_count,
+            txn_type                      AS transaction_type,
+            COUNT(*)                      AS total_transactions,
             ROUND(100.0 * COUNT(*) / (SELECT COUNT(*) FROM transactions), 2) AS pct_share
         FROM transactions
         GROUP BY txn_type
-        ORDER BY transaction_count DESC;
+        ORDER BY total_transactions DESC;
     """
 }
 
@@ -134,15 +134,15 @@ Q8 = {
         SELECT
             t.customer_id,
             c.name,
-            c.city,
-            COUNT(*)              AS high_value_txn_count,
+            c.account_type,
+            COUNT(*)                AS high_value_count,
             ROUND(SUM(t.amount), 2) AS total_high_value
         FROM transactions t
         JOIN customers c ON t.customer_id = c.customer_id
         WHERE t.amount > 20000
         GROUP BY t.customer_id
         HAVING COUNT(*) >= 5
-        ORDER BY high_value_txn_count DESC;
+        ORDER BY high_value_count DESC;
     """
 }
 
@@ -172,16 +172,15 @@ Q10 = {
     "sql": """
         SELECT
             l.customer_id,
-            c.name,
-            c.city,
-            COUNT(l.loan_id)              AS active_loan_count,
-            ROUND(SUM(l.loan_amount), 2)  AS total_loan_amount
+            COUNT(l.loan_id)                    AS no_of_active_loans,
+            GROUP_CONCAT(l.loan_type, ' | ')    AS loan_types_held,
+            ROUND(SUM(l.loan_amount), 2)        AS total_loan_amount,
+            ROUND(AVG(l.interest_rate), 2)      AS avg_interest_rate
         FROM loans l
-        JOIN customers c ON l.customer_id = c.customer_id
         WHERE LOWER(l.loan_status) IN ('active', 'approved')
         GROUP BY l.customer_id
         HAVING COUNT(l.loan_id) > 1
-        ORDER BY active_loan_count DESC;
+        ORDER BY no_of_active_loans DESC, total_loan_amount DESC;
     """
 }
 
@@ -191,15 +190,14 @@ Q11 = {
     "sql": """
         SELECT
             l.customer_id,
-            c.name,
-            c.city,
-            COUNT(l.loan_id)              AS loan_count,
-            ROUND(SUM(l.loan_amount), 2)  AS total_outstanding
+            COUNT(l.loan_id)                        AS number_of_loans,
+            GROUP_CONCAT(l.loan_type, ' | ')        AS loan_types,
+            GROUP_CONCAT(DISTINCT l.loan_status)    AS loan_statuses,
+            ROUND(SUM(l.loan_amount), 2)            AS total_outstanding_amount
         FROM loans l
-        JOIN customers c ON l.customer_id = c.customer_id
         WHERE LOWER(l.loan_status) != 'closed'
         GROUP BY l.customer_id
-        ORDER BY total_outstanding DESC
+        ORDER BY total_outstanding_amount DESC
         LIMIT 5;
     """
 }
@@ -235,7 +233,7 @@ Q13 = {
                 WHEN age BETWEEN 46 AND 60 THEN '46–60'
                 ELSE '60+'
             END AS age_group,
-            COUNT(*) AS customer_count,
+            COUNT(*) AS total_customers,
             ROUND(100.0 * COUNT(*) / (SELECT COUNT(*) FROM customers), 2) AS pct_share
         FROM customers
         GROUP BY age_group
@@ -278,7 +276,7 @@ Q15 = {
     "sql": """
         SELECT
             support_agent,
-            COUNT(*)                       AS critical_resolved,
+            COUNT(*)                       AS resolved_critical,
             ROUND(AVG(customer_rating), 2) AS avg_rating,
             ROUND(AVG(resolution_days), 1) AS avg_resolution_days
         FROM support_tickets
@@ -286,7 +284,7 @@ Q15 = {
           AND customer_rating >= 4
           AND LOWER(status) IN ('resolved', 'closed')
         GROUP BY support_agent
-        ORDER BY critical_resolved DESC
+        ORDER BY resolved_critical DESC
         LIMIT 10;
     """
 }
