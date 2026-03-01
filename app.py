@@ -943,178 +943,493 @@ elif page == "💰 Credit / Debit Simulation":
 elif page == "🧠 Analytical Insights":
 
     st.title("🧠 Analytical Insights")
-    st.markdown("Select from 15 real-world banking questions. Results execute live against the SQLite database.")
+    st.markdown("Select a category, then choose a query. Results execute live from SQLite.")
     st.markdown("---")
 
-    QUERIES = {
-        "Q1 ─ Customers per city and avg balance": {
-            "sql": """SELECT c.city, COUNT(c.customer_id) AS total_customers,
-                      ROUND(AVG(a.account_balance),2) AS avg_balance
-                      FROM customers c JOIN accounts a ON c.customer_id=a.customer_id
-                      GROUP BY c.city ORDER BY total_customers DESC LIMIT 15""",
-            "chart": "bar", "x": "city", "y": "total_customers",
-            "desc": "Shows which cities have the most bank customers."
+    CATEGORIES = {
+        "1️⃣  Customer & Account Analysis": {
+            "Q1 — Customers per city & avg balance": {
+                "desc": "How many customers exist per city, and what is their average account balance?",
+                "sql":  """
+                    SELECT c.city,
+                           COUNT(c.customer_id)            AS total_customers,
+                           ROUND(AVG(a.account_balance),2) AS avg_balance
+                    FROM customers c
+                    JOIN accounts  a ON c.customer_id = a.customer_id
+                    GROUP BY c.city
+                    ORDER BY total_customers DESC
+                    LIMIT 15
+                """,
+            },
+            "Q2 — Account type with highest total balance": {
+                "desc": "Which account type (Savings/Current) holds the highest total balance?",
+                "sql":  """
+                    SELECT c.account_type,
+                           COUNT(c.customer_id)            AS total_customers,
+                           ROUND(SUM(a.account_balance),2) AS total_balance,
+                           ROUND(AVG(a.account_balance),2) AS avg_balance
+                    FROM customers c
+                    JOIN accounts  a ON c.customer_id = a.customer_id
+                    GROUP BY c.account_type
+                    ORDER BY total_balance DESC
+                """,
+            },
+            "Q3 — Top 10 customers by account balance": {
+                "desc": "Who are the top 10 customers by total account balance?",
+                "sql":  """
+                    SELECT c.name,
+                           c.account_type,
+                           ROUND(a.account_balance,2) AS account_balance
+                    FROM customers c
+                    JOIN accounts  a ON c.customer_id = a.customer_id
+                    ORDER BY a.account_balance DESC
+                    LIMIT 10
+                """,
+            },
+            "Q4 — 2023 joiners with balance > ₹1,00,000": {
+                "desc": "Which customers opened accounts in 2023 with a balance above ₹1,00,000?",
+                "sql":  """
+                    SELECT c.name,
+                           c.account_type,
+                           c.city,
+                           c.join_date,
+                           ROUND(a.account_balance,2) AS account_balance
+                    FROM customers c
+                    JOIN accounts  a ON c.customer_id = a.customer_id
+                    WHERE strftime('%Y', c.join_date) = '2023'
+                      AND a.account_balance > 100000
+                    ORDER BY a.account_balance DESC
+                """,
+            },
         },
-        "Q2 ─ Account type with highest total balance": {
-            "sql": """SELECT c.account_type, COUNT(*) AS customers,
-                      ROUND(SUM(a.account_balance),2) AS total_balance
-                      FROM customers c JOIN accounts a ON c.customer_id=a.customer_id
-                      GROUP BY c.account_type ORDER BY total_balance DESC""",
-            "chart": "pie", "x": "account_type", "y": "total_balance",
-            "desc": "Compares total balance held by Savings vs Current accounts."
+        "2️⃣  Transaction Behavior": {
+            "Q5 — Total transaction volume by type": {
+                "desc": "What is the total transaction volume (sum of ₹ amounts) by transaction type?",
+                "sql":  """
+                    SELECT txn_type                 AS transaction_type,
+                           ROUND(SUM(amount), 2)   AS total_transaction_volume
+                    FROM transactions
+                    GROUP BY txn_type
+                    ORDER BY total_transaction_volume DESC
+                """,
+            },
+            "Q6 — Failed transactions per type": {
+                "desc": "How many failed transactions occurred for each transaction type?",
+                "sql":  """
+                    SELECT txn_type       AS transaction_type,
+                           COUNT(*)      AS failed_transactions
+                    FROM transactions
+                    WHERE LOWER(status) = 'failed'
+                    GROUP BY txn_type
+                    ORDER BY failed_transactions DESC
+                """,
+            },
+            "Q7 — Total number of transactions per type": {
+                "desc": "What is the total number of transactions per transaction type?",
+                "sql":  """
+                    SELECT txn_type    AS transaction_type,
+                           COUNT(*)   AS total_transactions
+                    FROM transactions
+                    GROUP BY txn_type
+                    ORDER BY total_transactions DESC
+                """,
+            },
+            "Q8 — Accounts with 5+ high-value transactions (>₹20K)": {
+                "desc": "Which accounts have 5 or more high-value transactions above ₹20,000?",
+                "sql":  """
+                    SELECT c.name,
+                           c.account_type,
+                           COUNT(*)               AS high_value_count,
+                           ROUND(SUM(t.amount),2) AS total_amount
+                    FROM transactions t
+                    JOIN customers    c ON t.customer_id = c.customer_id
+                    WHERE t.amount > 20000
+                    GROUP BY t.customer_id, c.name, c.account_type
+                    HAVING COUNT(*) >= 5
+                    ORDER BY high_value_count DESC
+                    LIMIT 15
+                """,
+            },
         },
-        "Q3 ─ Top 10 customers by balance": {
-            "sql": """SELECT c.customer_id, c.name, c.city,
-                      ROUND(a.account_balance,2) AS account_balance
-                      FROM customers c JOIN accounts a ON c.customer_id=a.customer_id
-                      ORDER BY a.account_balance DESC LIMIT 10""",
-            "chart": "bar", "x": "name", "y": "account_balance",
-            "desc": "Identifies the wealthiest customers."
+        "3️⃣  Loan Insights": {
+            "Q9 — Avg loan amount & interest rate by loan type": {
+                "desc": "What is the average loan amount and interest rate by loan type?",
+                "sql":  """
+                    SELECT loan_type,
+                           COUNT(*)                    AS total_loans,
+                           ROUND(AVG(loan_amount),2)   AS avg_loan_amount,
+                           ROUND(AVG(interest_rate),2) AS avg_interest_rate
+                    FROM loans
+                    GROUP BY loan_type
+                    ORDER BY avg_loan_amount DESC
+                """,
+            },
+            "Q10 — Customers with multiple active/approved loans": {
+                "desc": "Which customers currently hold more than one active or approved loan?",
+                "sql":  """
+                    SELECT
+                        l.customer_id                               AS customer_id,
+                        COUNT(l.loan_id)                           AS no_of_active_loans,
+                        GROUP_CONCAT(l.loan_type, ' | ')           AS loan_types_held,
+                        ROUND(SUM(l.loan_amount), 2)               AS total_loan_amount,
+                        ROUND(AVG(l.interest_rate), 2)             AS avg_interest_rate
+                    FROM loans l
+                    WHERE LOWER(l.loan_status) IN ('active', 'approved')
+                    GROUP BY l.customer_id
+                    HAVING COUNT(l.loan_id) > 1
+                    ORDER BY no_of_active_loans DESC, total_loan_amount DESC
+                    LIMIT 20
+                """,
+            },
+            "Q11 — Top 5 customers with highest outstanding loans": {
+                "desc": "Who are the top 5 customers with the highest non-closed outstanding loan amounts?",
+                "sql":  """
+                    SELECT
+                        l.customer_id                                AS customer_id,
+                        COUNT(l.loan_id)                            AS number_of_loans,
+                        GROUP_CONCAT(l.loan_type, ' | ')            AS loan_types,
+                        GROUP_CONCAT(DISTINCT l.loan_status)        AS loan_statuses,
+                        ROUND(SUM(l.loan_amount), 2)                AS total_outstanding_amount
+                    FROM loans l
+                    WHERE LOWER(l.loan_status) != 'closed'
+                    GROUP BY l.customer_id
+                    ORDER BY total_outstanding_amount DESC
+                    LIMIT 5
+                """,
+            },
         },
-        "Q4 ─ 2023 joiners with balance > ₹1L": {
-            "sql": """SELECT c.account_type, COUNT(*) AS count
-                      FROM customers c JOIN accounts a ON c.customer_id=a.customer_id
-                      WHERE strftime('%Y', c.join_date)='2023' AND a.account_balance>100000
-                      GROUP BY c.account_type""",
-            "chart": "pie", "x": "account_type", "y": "count",
-            "desc": "New customers in 2023 with significant balances."
+        "4️⃣  Branch & Performance": {
+            "Q12 — Average loan amount per branch": {
+                "desc": "What is the average loan amount disbursed per branch?",
+                "sql":  """
+                    SELECT branch,
+                           COUNT(*)                  AS total_loans,
+                           ROUND(AVG(loan_amount),2) AS avg_loan_amount
+                    FROM loans
+                    GROUP BY branch
+                    ORDER BY avg_loan_amount DESC
+                    LIMIT 10
+                """,
+            },
+            "Q13 — Customer count by age group": {
+                "desc": "How many customers exist in each age group?",
+                "sql":  """
+                    SELECT CASE
+                               WHEN age BETWEEN 18 AND 25 THEN '18-25'
+                               WHEN age BETWEEN 26 AND 35 THEN '26-35'
+                               WHEN age BETWEEN 36 AND 45 THEN '36-45'
+                               WHEN age BETWEEN 46 AND 55 THEN '46-55'
+                               WHEN age BETWEEN 56 AND 65 THEN '56-65'
+                               ELSE '65+'
+                           END        AS age_group,
+                           COUNT(*) AS total_customers
+                    FROM customers
+                    GROUP BY age_group
+                    ORDER BY age_group
+                """,
+            },
         },
-        "Q5 ─ Transaction volume by type": {
-            "sql": """SELECT txn_type, COUNT(*) AS total_transactions,
-                      ROUND(SUM(amount),2) AS total_volume
-                      FROM transactions GROUP BY txn_type ORDER BY total_volume DESC""",
-            "chart": "bar", "x": "txn_type", "y": "total_volume",
-            "desc": "Which transaction type moves the most money?"
-        },
-        "Q6 ─ Failed transactions per type": {
-            "sql": """SELECT txn_type, COUNT(*) AS failed_count
-                      FROM transactions WHERE status='failed'
-                      GROUP BY txn_type ORDER BY failed_count DESC""",
-            "chart": "bar", "x": "txn_type", "y": "failed_count",
-            "desc": "Identifies which transaction types fail most."
-        },
-        "Q7 ─ Transactions with success rate": {
-            "sql": """SELECT txn_type, COUNT(*) AS total,
-                      SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) AS success_count,
-                      ROUND(SUM(CASE WHEN status='success' THEN 1 ELSE 0 END)*100.0/COUNT(*),2) AS success_rate_pct
-                      FROM transactions GROUP BY txn_type ORDER BY total DESC""",
-            "chart": "bar", "x": "txn_type", "y": "success_rate_pct",
-            "desc": "Success rate for each transaction type."
-        },
-        "Q8 ─ Accounts with 5+ high-value transactions": {
-            "sql": """SELECT t.customer_id, c.name, COUNT(*) AS high_value_count,
-                      ROUND(SUM(t.amount),2) AS total_amount
-                      FROM transactions t JOIN customers c ON t.customer_id=c.customer_id
-                      WHERE t.amount>20000 GROUP BY t.customer_id,c.name
-                      HAVING COUNT(*)>=5 ORDER BY high_value_count DESC LIMIT 15""",
-            "chart": "bar", "x": "name", "y": "high_value_count",
-            "desc": "High-value customers with frequent large transactions."
-        },
-        "Q9 ─ Avg loan amount by loan type": {
-            "sql": """SELECT loan_type, COUNT(*) AS total_loans,
-                      ROUND(AVG(loan_amount),2) AS avg_loan_amount,
-                      ROUND(AVG(interest_rate),2) AS avg_interest_rate
-                      FROM loans GROUP BY loan_type ORDER BY avg_loan_amount DESC""",
-            "chart": "bar", "x": "loan_type", "y": "avg_loan_amount",
-            "desc": "Average loan size across different loan categories."
-        },
-        "Q10 ─ Customers with multiple active loans": {
-            "sql": """SELECT customer_id, COUNT(*) AS active_loans,
-                      ROUND(SUM(loan_amount),2) AS total_amount
-                      FROM loans WHERE loan_status IN ('Active','Approved')
-                      GROUP BY customer_id HAVING COUNT(*)>1
-                      ORDER BY active_loans DESC LIMIT 15""",
-            "chart": "bar", "x": "customer_id", "y": "active_loans",
-            "desc": "Customers juggling multiple active loans — higher risk."
-        },
-        "Q11 ─ Top 5 highest outstanding loans": {
-            "sql": """SELECT customer_id, COUNT(*) AS loan_count,
-                      ROUND(SUM(loan_amount),2) AS total_outstanding
-                      FROM loans WHERE loan_status!='Closed'
-                      GROUP BY customer_id ORDER BY total_outstanding DESC LIMIT 5""",
-            "chart": "bar", "x": "customer_id", "y": "total_outstanding",
-            "desc": "Customers with the largest total outstanding loan amounts."
-        },
-        "Q12 ─ Average loan amount per branch": {
-            "sql": """SELECT branch, COUNT(*) AS total_loans,
-                      ROUND(AVG(loan_amount),2) AS avg_loan_amount
-                      FROM loans GROUP BY branch
-                      ORDER BY avg_loan_amount DESC LIMIT 10""",
-            "chart": "bar", "x": "branch", "y": "avg_loan_amount",
-            "desc": "Which branches handle the largest average loans?"
-        },
-        "Q13 ─ Customers by age group": {
-            "sql": """SELECT CASE
-                      WHEN age BETWEEN 18 AND 25 THEN '18-25'
-                      WHEN age BETWEEN 26 AND 35 THEN '26-35'
-                      WHEN age BETWEEN 36 AND 45 THEN '36-45'
-                      WHEN age BETWEEN 46 AND 55 THEN '46-55'
-                      WHEN age BETWEEN 56 AND 65 THEN '56-65'
-                      ELSE '65+' END AS age_group, COUNT(*) AS total_customers
-                      FROM customers GROUP BY age_group ORDER BY age_group""",
-            "chart": "pie", "x": "age_group", "y": "total_customers",
-            "desc": "Customer demographics breakdown by age group."
-        },
-        "Q14 ─ Issue categories by resolution time": {
-            "sql": """SELECT issue_category, COUNT(*) AS tickets,
-                      ROUND(AVG(CAST((julianday(date_closed) - julianday(date_opened)) AS INTEGER)),2) AS avg_days
-                      FROM support_tickets WHERE date_closed!='Not Closed'
-                      GROUP BY issue_category ORDER BY avg_days DESC LIMIT 10""",
-            "chart": "bar", "x": "issue_category", "y": "avg_days",
-            "desc": "Which issue types take longest to resolve?"
-        },
-        "Q15 ─ Best agents for critical tickets": {
-            "sql": """SELECT support_agent, COUNT(*) AS resolved_critical,
-                      ROUND(AVG(customer_rating),2) AS avg_rating
-                      FROM support_tickets
-                      WHERE priority='Critical' AND status IN ('Resolved','Closed') AND customer_rating>=4
-                      GROUP BY support_agent ORDER BY resolved_critical DESC LIMIT 10""",
-            "chart": "bar", "x": "support_agent", "y": "avg_rating",
-            "desc": "Top performing support agents for critical issues."
+        "5️⃣  Support Tickets & Customer Experience": {
+            "Q14 — Issue categories by avg resolution time": {
+                "desc": "Which issue categories have the longest average resolution time?",
+                "sql":  """
+                    SELECT issue_category,
+                           COUNT(*) AS total_tickets,
+                           ROUND(AVG(
+                               CAST(
+                                   julianday(CASE WHEN date_closed='Not Closed' THEN NULL
+                                                  ELSE date_closed END)
+                                   - julianday(date_opened)
+                               AS INTEGER)
+                           ),2) AS avg_days_to_resolve
+                    FROM support_tickets
+                    WHERE date_closed != 'Not Closed'
+                    GROUP BY issue_category
+                    ORDER BY avg_days_to_resolve DESC
+                    LIMIT 10
+                """,
+            },
+            "Q15 — Best agents for critical tickets (rating ≥ 4)": {
+                "desc": "Which support agents resolved the most critical tickets with customer rating ≥ 4?",
+                "sql":  """
+                    SELECT support_agent,
+                           COUNT(*)                      AS resolved_critical,
+                           ROUND(AVG(customer_rating),2) AS avg_rating
+                    FROM support_tickets
+                    WHERE LOWER(priority) = 'critical'
+                      AND LOWER(status)   IN ('resolved','closed')
+                      AND customer_rating >= 4
+                    GROUP BY support_agent
+                    ORDER BY resolved_critical DESC
+                    LIMIT 10
+                """,
+            },
         },
     }
 
-    selected_q = st.selectbox("📊 Select a Banking Question to Analyze:", list(QUERIES.keys()))
-    q = QUERIES[selected_q]
-
-    st.info(f"💡 **Insight:** {q['desc']}")
+    # ── Navigation ─────────────────────────────────────────────
+    cat = st.selectbox("📂 Select Category", list(CATEGORIES.keys()))
+    q_name = st.selectbox("📊 Select Query", list(CATEGORIES[cat].keys()))
     st.markdown("---")
 
-    df = run_query(q["sql"])
+    q   = CATEGORIES[cat][q_name]
+    df  = run_query(q["sql"])
+
+    st.info(f"💡 **{q['desc']}**")
 
     col1, col2 = st.columns([1, 1])
 
+    # ── TABLE ─────────────────────────────────────────────────
     with col1:
         st.subheader("📋 Query Results")
-        st.dataframe(df, use_container_width=True, hide_index=True)
-        st.markdown(f"**Rows returned: {len(df)}**")
-        csv = df.to_csv(index=False)
-        st.download_button("⬇️ Download Results", csv, "results.csv", "text/csv")
+        if df.empty:
+            st.warning("⚠️ No data returned. Check that your database is populated.")
+        else:
+            st.dataframe(df, use_container_width=True, hide_index=True)
+            st.caption(f"Rows returned: {len(df)}")
+            st.download_button("⬇️ Download CSV", df.to_csv(index=False),
+                               f"{q_name[:3].strip()}.csv", "text/csv")
 
+    # ── VISUALIZATION ─────────────────────────────────────────
     with col2:
         st.subheader("📊 Visualization")
-        if not df.empty:
-            if q["chart"] == "bar":
-                fig = px.bar(df, x=q["x"], y=q["y"], color=q["x"],
-                             color_discrete_sequence=px.colors.qualitative.Set2,
-                             title=selected_q)
-                fig.update_layout(showlegend=False, xaxis_tickangle=-30, height=420)
+        if df.empty:
+            st.info("No data to visualize.")
+
+        # Q10 — dual axis: customer_id vs no_of_active_loans (bar) + total_loan_amount (line)
+        elif q_name.startswith("Q10"):
+            import plotly.graph_objects as go
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                x=df["customer_id"].astype(str),
+                y=df["no_of_active_loans"],
+                name="No. of Active Loans",
+                marker_color="#1565C0",
+                text=df["no_of_active_loans"],
+                textposition="outside",
+                yaxis="y1"
+            ))
+            fig.add_trace(go.Scatter(
+                x=df["customer_id"].astype(str),
+                y=df["total_loan_amount"],
+                name="Total Loan Amount (₹)",
+                mode="lines+markers",
+                marker=dict(color="#E53935", size=8),
+                line=dict(color="#E53935", width=2),
+                yaxis="y2"
+            ))
+            fig.update_layout(
+                title="Customers with Multiple Active / Approved Loans",
+                xaxis=dict(title="Customer ID", tickangle=-35),
+                yaxis=dict(title="No. of Active Loans", side="left",
+                           showgrid=True, gridcolor="#E0E0E0"),
+                yaxis2=dict(title="Total Loan Amount (₹)", side="right",
+                            overlaying="y", showgrid=False),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                height=450, plot_bgcolor="white", paper_bgcolor="white"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Q11 — horizontal bar: customer_id vs total_outstanding_amount
+        elif q_name.startswith("Q11"):
+            import plotly.graph_objects as go
+            df_sorted = df.sort_values("total_outstanding_amount", ascending=True)
+            bar_colors = ["#b71c1c","#c62828","#d32f2f","#e53935","#ef5350"]
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                y=df_sorted["customer_id"].astype(str),
+                x=df_sorted["total_outstanding_amount"],
+                orientation="h",
+                marker_color=bar_colors[:len(df_sorted)],
+                text=[f"₹{v:,.0f}  ({lc} loan(s))"
+                      for v, lc in zip(df_sorted["total_outstanding_amount"],
+                                       df_sorted["number_of_loans"])],
+                textposition="inside",
+                insidetextanchor="middle",
+                textfont=dict(color="white", size=11)
+            ))
+            fig.update_layout(
+                title="Top 5 Customers — Highest Outstanding Loan Amount",
+                xaxis=dict(title="Total Outstanding Amount (₹)",
+                           tickformat=",.0f", showgrid=True, gridcolor="#E0E0E0"),
+                yaxis=dict(title="Customer ID"),
+                height=430, plot_bgcolor="white", paper_bgcolor="white"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Q12 — bar: branch vs avg_loan_amount
+        elif q_name.startswith("Q12"):
+            fig = px.bar(df, x="branch", y="avg_loan_amount",
+                         color="branch",
+                         color_discrete_sequence=px.colors.qualitative.Set3,
+                         title="Average Loan Amount per Branch",
+                         labels={"branch":"Branch",
+                                 "avg_loan_amount":"Avg Loan Amount (₹)"})
+            fig.update_layout(showlegend=False, xaxis_tickangle=-30, height=430,
+                              plot_bgcolor="white", paper_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Q13 — pie: age group distribution
+        elif q_name.startswith("Q13"):
+            fig = px.pie(df, names="age_group", values="total_customers",
+                         color_discrete_sequence=px.colors.qualitative.Pastel,
+                         title="Customer Distribution by Age Group")
+            fig.update_traces(textposition="inside",
+                              textinfo="percent+label+value")
+            fig.update_layout(height=430, paper_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Q14 — bar: issue category vs avg days, orange gradient
+        elif q_name.startswith("Q14"):
+            fig = px.bar(df, x="issue_category", y="avg_days_to_resolve",
+                         color="avg_days_to_resolve",
+                         color_continuous_scale="Oranges",
+                         title="Avg Resolution Time by Issue Category",
+                         labels={"issue_category":"Issue Category",
+                                 "avg_days_to_resolve":"Avg Days to Resolve"})
+            fig.update_layout(showlegend=False, xaxis_tickangle=-30, height=430,
+                              plot_bgcolor="white", paper_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Q15 — bar: support agent vs resolved count, colour = avg_rating
+        elif q_name.startswith("Q15"):
+            fig = px.bar(df, x="support_agent", y="resolved_critical",
+                         color="avg_rating",
+                         color_continuous_scale="Greens",
+                         title="Best Agents — Critical Tickets (Rating ≥ 4)",
+                         labels={"support_agent":"Support Agent",
+                                 "resolved_critical":"Critical Tickets Resolved",
+                                 "avg_rating":"Avg Rating"})
+            fig.update_layout(xaxis_tickangle=-30, height=430,
+                              plot_bgcolor="white", paper_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Q1 — grouped bar: city vs total_customers AND avg_balance
+        elif q_name.startswith("Q1"):
+            df_m = df.melt(id_vars="city",
+                           value_vars=["total_customers","avg_balance"],
+                           var_name="Metric", value_name="Value")
+            fig = px.bar(df_m, x="city", y="Value", color="Metric",
+                         barmode="group",
+                         color_discrete_map={"total_customers":"#2196F3",
+                                             "avg_balance":"#FF9800"},
+                         title="Customers & Avg Balance per City",
+                         labels={"city":"City","Value":"Value","Metric":"Metric"})
+            fig.update_layout(xaxis_tickangle=-35, height=430,
+                              legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                              plot_bgcolor="white", paper_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Q2 — bar: account type vs total_balance, labelled with customer count
+        elif q_name.startswith("Q2"):
+            fig = px.bar(df, x="account_type", y="total_balance",
+                         color="account_type", text="total_customers",
+                         color_discrete_sequence=["#4CAF50","#2196F3"],
+                         title="Total Balance by Account Type",
+                         labels={"account_type":"Account Type",
+                                 "total_balance":"Total Balance (₹)"})
+            fig.update_traces(texttemplate="👥 %{text} customers",
+                              textposition="outside")
+            fig.update_layout(showlegend=False, height=430,
+                              plot_bgcolor="white", paper_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Q3 — horizontal bar: name vs balance, colour = account_type
+        elif q_name.startswith("Q3"):
+            fig = px.bar(df, x="account_balance", y="name",
+                         color="account_type", orientation="h",
+                         color_discrete_sequence=["#4CAF50","#2196F3"],
+                         title="Top 10 Customers by Account Balance",
+                         labels={"account_balance":"Balance (₹)",
+                                 "name":"Customer Name",
+                                 "account_type":"Account Type"})
+            fig.update_layout(height=430, yaxis=dict(autorange="reversed"),
+                              plot_bgcolor="white", paper_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Q4 — bar: customer name vs balance, colour = account_type
+        elif q_name.startswith("Q4"):
+            if not df.empty:
+                fig = px.bar(df, x="name", y="account_balance",
+                             color="account_type",
+                             color_discrete_sequence=["#9C27B0","#FF5722"],
+                             title="2023 Joiners with Balance > ₹1,00,000",
+                             labels={"name":"Customer Name",
+                                     "account_balance":"Balance (₹)",
+                                     "account_type":"Account Type"})
+                fig.update_layout(xaxis_tickangle=-35, height=430,
+                                  plot_bgcolor="white", paper_bgcolor="white")
                 st.plotly_chart(fig, use_container_width=True)
-            elif q["chart"] == "pie":
-                fig = px.pie(df, names=q["x"], values=q["y"],
-                             color_discrete_sequence=px.colors.qualitative.Set2,
-                             title=selected_q)
-                fig.update_layout(height=420)
-                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No customers found for this criteria.")
+
+        # Q5 — bar: transaction type vs total volume
+        elif q_name.startswith("Q5"):
+            fig = px.bar(df, x="transaction_type", y="total_transaction_volume",
+                         color="transaction_type",
+                         color_discrete_sequence=px.colors.qualitative.Set2,
+                         title="Total Transaction Volume (₹) by Type",
+                         labels={"transaction_type":"Transaction Type",
+                                 "total_transaction_volume":"Total Volume (₹)"})
+            fig.update_layout(showlegend=False, xaxis_tickangle=-30, height=430,
+                              plot_bgcolor="white", paper_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Q6 — bar: transaction type vs failed count
+        elif q_name.startswith("Q6"):
+            fig = px.bar(df, x="transaction_type", y="failed_transactions",
+                         color="transaction_type",
+                         color_discrete_sequence=px.colors.qualitative.Set1,
+                         title="Failed Transactions per Transaction Type",
+                         labels={"transaction_type":"Transaction Type",
+                                 "failed_transactions":"Failed Count"})
+            fig.update_layout(showlegend=False, xaxis_tickangle=-30, height=430,
+                              plot_bgcolor="white", paper_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Q7 — pie: transaction type share of total count
+        elif q_name.startswith("Q7"):
+            fig = px.pie(df, names="transaction_type", values="total_transactions",
+                         color_discrete_sequence=px.colors.qualitative.Pastel,
+                         title="Total Transactions per Type")
+            fig.update_traces(textposition="inside",
+                              textinfo="percent+label+value")
+            fig.update_layout(height=430, paper_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Q8 — bar: name vs high_value_count, colour = account_type
+        elif q_name.startswith("Q8"):
+            fig = px.bar(df, x="name", y="high_value_count",
+                         color="account_type",
+                         color_discrete_sequence=px.colors.qualitative.Bold,
+                         title="Accounts with 5+ High-Value Transactions (>₹20K)",
+                         labels={"name":"Customer Name",
+                                 "high_value_count":"High-Value Txn Count",
+                                 "account_type":"Account Type"})
+            fig.update_layout(xaxis_tickangle=-30, height=430,
+                              plot_bgcolor="white", paper_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Q9 — grouped bar: loan type vs avg_loan_amount AND avg_interest_rate
+        elif q_name.startswith("Q9"):
+            df_m = df.melt(id_vars="loan_type",
+                           value_vars=["avg_loan_amount","avg_interest_rate"],
+                           var_name="Metric", value_name="Value")
+            fig = px.bar(df_m, x="loan_type", y="Value", color="Metric",
+                         barmode="group",
+                         color_discrete_map={"avg_loan_amount":"#3F51B5",
+                                             "avg_interest_rate":"#E91E63"},
+                         title="Avg Loan Amount & Interest Rate by Loan Type",
+                         labels={"loan_type":"Loan Type","Value":"Value"})
+            fig.update_layout(xaxis_tickangle=-30, height=430,
+                              legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                              plot_bgcolor="white", paper_bgcolor="white")
+            st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
     st.subheader("🔍 SQL Query Used")
     st.code(q["sql"], language="sql")
 
-
-# ══════════════════════════════════════════════
-# PAGE 7 — ABOUT CREATOR
-# ══════════════════════════════════════════════
 elif page == "👩‍💻 About Creator":
 
     st.title("👩‍💻 About the Creator")
@@ -1130,7 +1445,7 @@ elif page == "👩‍💻 About Creator":
             st.image("https://img.icons8.com/color/200/user-female-circle--v1.png", width=220)
 
         st.markdown("### 🏆 Skills")
-        skills = ["Python", "Sqlite", "Streamlit", "Data Analysis",
+        skills = ["Python", "MySQL", "Streamlit", "Data Analysis",
                   "Machine Learning", "Pandas", "Plotly", "Banking Analytics",
                   "Artificial Intelligence", "Biomedical Engineering"]
         for s in skills:
