@@ -8,9 +8,7 @@ def get_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# ─────────────────────────────────────────────────────────────────
 # CATEGORY 1 — CUSTOMER & ACCOUNT ANALYSIS
-# ─────────────────────────────────────────────────────────────────
 
 Q1 = {
     "title": "Q1 — Customers per City with Average Account Balance",
@@ -23,7 +21,8 @@ Q1 = {
         FROM customers c
         JOIN accounts a ON c.customer_id = a.customer_id
         GROUP BY c.city
-        ORDER BY total_customers DESC;
+        ORDER BY total_customers DESC
+        LIMIT 15;
     """
 }
 
@@ -65,7 +64,6 @@ Q4 = {
     "description": "Which customers opened accounts in 2023 with a balance above ₹1,00,000?",
     "sql": """
         SELECT
-            c.customer_id,
             c.name,
             c.city,
             c.account_type,
@@ -79,9 +77,7 @@ Q4 = {
     """
 }
 
-# ─────────────────────────────────────────────────────────────────
 # CATEGORY 2 — TRANSACTION BEHAVIOR
-# ─────────────────────────────────────────────────────────────────
 
 Q5 = {
     "title": "Q5 — Total Transaction Volume by Type",
@@ -89,9 +85,7 @@ Q5 = {
     "sql": """
         SELECT
             txn_type                      AS transaction_type,
-            COUNT(*)                      AS total_transactions,
-            ROUND(SUM(amount), 2)         AS total_transaction_volume,
-            ROUND(AVG(amount), 2)         AS avg_amount
+            ROUND(SUM(amount), 2)         AS total_transaction_volume
         FROM transactions
         GROUP BY txn_type
         ORDER BY total_transaction_volume DESC;
@@ -119,8 +113,7 @@ Q7 = {
     "sql": """
         SELECT
             txn_type                      AS transaction_type,
-            COUNT(*)                      AS total_transactions,
-            ROUND(100.0 * COUNT(*) / (SELECT COUNT(*) FROM transactions), 2) AS pct_share
+            COUNT(*)                      AS total_transactions
         FROM transactions
         GROUP BY txn_type
         ORDER BY total_transactions DESC;
@@ -132,7 +125,6 @@ Q8 = {
     "description": "Which accounts have 5 or more high-value transactions above ₹20,000?",
     "sql": """
         SELECT
-            t.customer_id,
             c.name,
             c.account_type,
             COUNT(*)                AS high_value_count,
@@ -142,13 +134,12 @@ Q8 = {
         WHERE t.amount > 20000
         GROUP BY t.customer_id
         HAVING COUNT(*) >= 5
-        ORDER BY high_value_count DESC;
+        ORDER BY high_value_count DESC
+        LIMIT 20;
     """
 }
 
-# ─────────────────────────────────────────────────────────────────
 # CATEGORY 3 — LOAN INSIGHTS
-# ─────────────────────────────────────────────────────────────────
 
 Q9 = {
     "title": "Q9 — Average Loan Amount & Interest Rate by Loan Type",
@@ -158,8 +149,7 @@ Q9 = {
             loan_type,
             COUNT(*)                          AS total_loans,
             ROUND(AVG(loan_amount), 2)        AS avg_loan_amount,
-            ROUND(AVG(interest_rate), 2)      AS avg_interest_rate,
-            ROUND(SUM(loan_amount), 2)        AS total_disbursed
+            ROUND(AVG(interest_rate), 2)      AS avg_interest_rate
         FROM loans
         GROUP BY loan_type
         ORDER BY avg_loan_amount DESC;
@@ -180,7 +170,8 @@ Q10 = {
         WHERE LOWER(l.loan_status) IN ('active', 'approved')
         GROUP BY l.customer_id
         HAVING COUNT(l.loan_id) > 1
-        ORDER BY no_of_active_loans DESC, total_loan_amount DESC;
+        ORDER BY no_of_active_loans DESC, total_loan_amount DESC
+        LIMIT 20;
     """
 }
 
@@ -202,9 +193,7 @@ Q11 = {
     """
 }
 
-# ─────────────────────────────────────────────────────────────────
 # CATEGORY 4 — BRANCH & PERFORMANCE
-# ─────────────────────────────────────────────────────────────────
 
 Q12 = {
     "title": "Q12 — Average Loan Amount per Branch",
@@ -212,12 +201,12 @@ Q12 = {
     "sql": """
         SELECT
             l.branch,
-            COUNT(l.loan_id)              AS total_loans,
-            ROUND(AVG(l.loan_amount), 2)  AS avg_loan_amount,
-            ROUND(SUM(l.loan_amount), 2)  AS total_loan_amount
+            COUNT(*)              AS total_loans,
+            ROUND(AVG(l.loan_amount), 2)  AS avg_loan_amount
         FROM loans l
         GROUP BY l.branch
-        ORDER BY avg_loan_amount DESC;
+        ORDER BY avg_loan_amount DESC
+        LIMIT 10;
     """
 }
 
@@ -233,8 +222,7 @@ Q13 = {
                 WHEN age BETWEEN 46 AND 60 THEN '46–60'
                 ELSE '60+'
             END AS age_group,
-            COUNT(*) AS total_customers,
-            ROUND(100.0 * COUNT(*) / (SELECT COUNT(*) FROM customers), 2) AS pct_share
+            COUNT(*) AS total_customers
         FROM customers
         GROUP BY age_group
         ORDER BY
@@ -248,9 +236,7 @@ Q13 = {
     """
 }
 
-# ─────────────────────────────────────────────────────────────────
 # CATEGORY 5 — SUPPORT TICKETS & CUSTOMER EXPERIENCE
-# ─────────────────────────────────────────────────────────────────
 
 Q14 = {
     "title": "Q14 — Issue Categories with Longest Average Resolution Time",
@@ -259,14 +245,13 @@ Q14 = {
         SELECT
             issue_category,
             COUNT(*)                              AS total_tickets,
-            ROUND(AVG(resolution_days), 1)        AS avg_resolution_days,
-            MAX(resolution_days)                  AS max_resolution_days,
-            ROUND(AVG(customer_rating), 2)        AS avg_customer_rating
+            ROUND(AVG(resolution_days), 1)        AS avg_resolution_days
         FROM support_tickets
         WHERE resolution_days IS NOT NULL
           AND resolution_days > 0
         GROUP BY issue_category
-        ORDER BY avg_resolution_days DESC;
+        ORDER BY avg_resolution_days DESC
+        LIMIT 10;
     """
 }
 
@@ -277,8 +262,7 @@ Q15 = {
         SELECT
             support_agent,
             COUNT(*)                       AS resolved_critical,
-            ROUND(AVG(customer_rating), 2) AS avg_rating,
-            ROUND(AVG(resolution_days), 1) AS avg_resolution_days
+            ROUND(AVG(customer_rating), 2) AS avg_rating
         FROM support_tickets
         WHERE LOWER(priority) = 'critical'
           AND customer_rating >= 4
@@ -289,24 +273,18 @@ Q15 = {
     """
 }
 
-# ─────────────────────────────────────────────────────────────────
 # ALL QUERIES REGISTRY (used by Streamlit dropdown)
-# ─────────────────────────────────────────────────────────────────
 
 ALL_QUERIES = [Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8,
                Q9, Q10, Q11, Q12, Q13, Q14, Q15]
 
-
-# ─────────────────────────────────────────────────────────────────
 # RUNNER — test all queries from command line
-# ─────────────────────────────────────────────────────────────────
 
 def run_query(query_dict: dict) -> pd.DataFrame:
     conn = get_connection()
     df = pd.read_sql_query(query_dict["sql"], conn)
     conn.close()
     return df
-
 
 if __name__ == "__main__":
     print("=" * 60)

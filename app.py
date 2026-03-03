@@ -6,9 +6,7 @@ from datetime import datetime, date
 import random
 import os
 
-# ============================================================
 # BankSight - Complete Streamlit Application
-# ============================================================
 
 st.set_page_config(
     page_title="BankSight Dashboard",
@@ -31,10 +29,8 @@ div[data-testid="metric-container"] {
 </style>
 """, unsafe_allow_html=True)
 
-
-# ─────────────────────────────────────────────
 # DATABASE CONNECTION
-# ─────────────────────────────────────────────
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH  = os.path.join(BASE_DIR, "database", "banksight.db")
 
@@ -85,10 +81,8 @@ def safe_val(sql, default=0):
     except:
         return default
 
-
-# ─────────────────────────────────────────────
 # SIDEBAR
-# ─────────────────────────────────────────────
+
 st.sidebar.markdown("## 🏦 BankSight")
 st.sidebar.markdown("*Transaction Intelligence Dashboard*")
 st.sidebar.markdown("---")
@@ -105,12 +99,10 @@ page = st.sidebar.radio("📌 Navigate To", [
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Database:** `banksight.db` (SQLite)")
-st.sidebar.markdown("**Stack:** Python · SQLite · Streamlit · Plotly")
+st.sidebar.markdown("**Stack:** Python · SQLite · Streamlit ")
 
-
-# ══════════════════════════════════════════════
 # PAGE 1 — INTRODUCTION
-# ══════════════════════════════════════════════
+
 if page == "🏠 Introduction":
 
     st.markdown("<div class='big-title'>🏦 BankSight: Transaction Intelligence Dashboard</div>", unsafe_allow_html=True)
@@ -475,15 +467,24 @@ elif page == "✏️ CRUD Operations":
 
         elif operation == "👁️ Read":
             st.subheader("👁️ View Account")
-            cid = st.text_input("Customer ID")
+            all_acc = run_query("SELECT a.customer_id, c.name FROM accounts a JOIN customers c ON a.customer_id=c.customer_id ORDER BY a.customer_id")
+            opts = ["-- Show All --"] + [f"{r['customer_id']} — {r['name']}" for _, r in all_acc.iterrows()]
+            chosen = st.selectbox("🔍 Select Account", opts, key="acc_read")
             if st.button("🔍 Search", type="primary"):
-                df = run_query("SELECT * FROM accounts WHERE customer_id=%s", (cid,))
+                if chosen == "-- Show All --":
+                    df = run_query("SELECT a.*, c.name FROM accounts a JOIN customers c ON a.customer_id=c.customer_id LIMIT 50")
+                else:
+                    cid = chosen.split(" — ")[0]
+                    df = run_query("SELECT * FROM accounts WHERE customer_id=%s", (cid,))
                 st.dataframe(df, use_container_width=True, hide_index=True) if not df.empty else st.warning("Not found!")
 
         elif operation == "✏️ Update":
             st.subheader("✏️ Update Account Balance")
-            cid = st.text_input("Customer ID")
-            if cid:
+            all_acc = run_query("SELECT a.customer_id, c.name FROM accounts a JOIN customers c ON a.customer_id=c.customer_id ORDER BY a.customer_id")
+            opts = ["-- Select Account --"] + [f"{r['customer_id']} — {r['name']}" for _, r in all_acc.iterrows()]
+            chosen = st.selectbox("🔍 Select Account to Update", opts, key="acc_update")
+            if chosen != "-- Select Account --":
+                cid = chosen.split(" — ")[0]
                 df = run_query("SELECT * FROM accounts WHERE customer_id=%s", (cid,))
                 if not df.empty:
                     st.info(f"Current Balance: ₹{float(df['account_balance'][0]):,.2f}")
@@ -497,8 +498,11 @@ elif page == "✏️ CRUD Operations":
 
         elif operation == "🗑️ Delete":
             st.subheader("🗑️ Delete Account")
-            cid = st.text_input("Customer ID")
-            if cid:
+            all_acc = run_query("SELECT a.customer_id, c.name FROM accounts a JOIN customers c ON a.customer_id=c.customer_id ORDER BY a.customer_id")
+            opts = ["-- Select Account --"] + [f"{r['customer_id']} — {r['name']}" for _, r in all_acc.iterrows()]
+            chosen = st.selectbox("🔍 Select Account to Delete", opts, key="acc_delete")
+            if chosen != "-- Select Account --":
+                cid = chosen.split(" — ")[0]
                 df = run_query("SELECT * FROM accounts WHERE customer_id=%s", (cid,))
                 if not df.empty:
                     st.dataframe(df, use_container_width=True, hide_index=True)
@@ -531,25 +535,34 @@ elif page == "✏️ CRUD Operations":
 
         elif operation == "👁️ Read":
             st.subheader("👁️ View Transactions")
-            cid = st.text_input("Customer ID")
+            all_txn = run_query("SELECT t.txn_id, c.name, t.txn_type, t.amount, t.status FROM transactions t JOIN customers c ON t.customer_id=c.customer_id ORDER BY t.txn_id DESC LIMIT 300")
+            opts = ["-- Show All (Latest 50) --"] + [f"{r['txn_id']} — {r['name']} | {r['txn_type']} ₹{r['amount']} ({r['status']})" for _, r in all_txn.iterrows()]
+            chosen = st.selectbox("🔍 Select Transaction", opts, key="txn_read")
             if st.button("🔍 Search", type="primary"):
-                df = run_query("SELECT * FROM transactions WHERE customer_id=%s ORDER BY txn_time DESC", (cid,))
+                if chosen == "-- Show All (Latest 50) --":
+                    df = run_query("SELECT * FROM transactions ORDER BY txn_time DESC LIMIT 50")
+                else:
+                    txn_id = chosen.split(" — ")[0]
+                    df = run_query("SELECT * FROM transactions WHERE txn_id=%s", (txn_id,))
                 if not df.empty:
-                    st.markdown(f"**{len(df)} transactions found**")
+                    st.markdown(f"**{len(df)} transaction(s) found**")
                     st.dataframe(df, use_container_width=True, hide_index=True)
                 else:
                     st.warning("No transactions found!")
 
         elif operation == "✏️ Update":
             st.subheader("✏️ Update Transaction")
-            txn_id = st.text_input("Transaction ID")
-            if txn_id:
+            all_txn = run_query("SELECT t.txn_id, c.name, t.txn_type, t.amount, t.status FROM transactions t JOIN customers c ON t.customer_id=c.customer_id ORDER BY t.txn_id DESC LIMIT 300")
+            opts = ["-- Select Transaction --"] + [f"{r['txn_id']} — {r['name']} | {r['txn_type']} ₹{r['amount']} ({r['status']})" for _, r in all_txn.iterrows()]
+            chosen = st.selectbox("🔍 Select Transaction to Update", opts, key="txn_update")
+            if chosen != "-- Select Transaction --":
+                txn_id = chosen.split(" — ")[0]
                 df = run_query("SELECT * FROM transactions WHERE txn_id=%s", (txn_id,))
                 if not df.empty:
                     st.dataframe(df, use_container_width=True, hide_index=True)
                     c1, c2 = st.columns(2)
                     with c1:
-                        new_status = st.selectbox("New Status", ["success","failed"])
+                        new_status = st.selectbox("New Status", ["Success","Failed"])
                     with c2:
                         new_amount = st.number_input("New Amount (₹)", 100.0, 100000.0, float(df['amount'][0]))
                     if st.button("✅ Update", type="primary"):
@@ -561,8 +574,11 @@ elif page == "✏️ CRUD Operations":
 
         elif operation == "🗑️ Delete":
             st.subheader("🗑️ Delete Transaction")
-            txn_id = st.text_input("Transaction ID")
-            if txn_id:
+            all_txn = run_query("SELECT t.txn_id, c.name, t.txn_type, t.amount, t.status FROM transactions t JOIN customers c ON t.customer_id=c.customer_id ORDER BY t.txn_id DESC LIMIT 300")
+            opts = ["-- Select Transaction --"] + [f"{r['txn_id']} — {r['name']} | {r['txn_type']} ₹{r['amount']} ({r['status']})" for _, r in all_txn.iterrows()]
+            chosen = st.selectbox("🔍 Select Transaction to Delete", opts, key="txn_delete")
+            if chosen != "-- Select Transaction --":
+                txn_id = chosen.split(" — ")[0]
                 df = run_query("SELECT * FROM transactions WHERE txn_id=%s", (txn_id,))
                 if not df.empty:
                     st.dataframe(df, use_container_width=True, hide_index=True)
@@ -599,18 +615,24 @@ elif page == "✏️ CRUD Operations":
 
         elif operation == "👁️ Read":
             st.subheader("👁️ View Loans")
-            loan_id = st.text_input("Loan ID (leave blank to show all active)")
+            all_loans = run_query("SELECT l.loan_id, c.name, l.loan_type, l.loan_status FROM loans l JOIN customers c ON l.customer_id=c.customer_id ORDER BY l.loan_id")
+            opts = ["-- Show All --"] + [f"{r['loan_id']} — {r['name']} | {r['loan_type']} ({r['loan_status']})" for _, r in all_loans.iterrows()]
+            chosen = st.selectbox("🔍 Select Loan", opts, key="loan_read")
             if st.button("🔍 Search", type="primary"):
-                if loan_id:
-                    df = run_query("SELECT * FROM loans WHERE loan_id=%s", (loan_id,))
+                if chosen == "-- Show All --":
+                    df = run_query("SELECT * FROM loans LIMIT 50")
                 else:
-                    df = run_query("SELECT * FROM loans WHERE loan_status='Active' LIMIT 50")
+                    loan_id = chosen.split(" — ")[0]
+                    df = run_query("SELECT * FROM loans WHERE loan_id=%s", (loan_id,))
                 st.dataframe(df, use_container_width=True, hide_index=True) if not df.empty else st.warning("Not found!")
 
         elif operation == "✏️ Update":
             st.subheader("✏️ Update Loan Status")
-            loan_id = st.text_input("Loan ID")
-            if loan_id:
+            all_loans = run_query("SELECT l.loan_id, c.name, l.loan_type, l.loan_status FROM loans l JOIN customers c ON l.customer_id=c.customer_id ORDER BY l.loan_id")
+            opts = ["-- Select Loan --"] + [f"{r['loan_id']} — {r['name']} | {r['loan_type']} ({r['loan_status']})" for _, r in all_loans.iterrows()]
+            chosen = st.selectbox("🔍 Select Loan to Update", opts, key="loan_update")
+            if chosen != "-- Select Loan --":
+                loan_id = chosen.split(" — ")[0]
                 df = run_query("SELECT * FROM loans WHERE loan_id=%s", (loan_id,))
                 if not df.empty:
                     st.dataframe(df, use_container_width=True, hide_index=True)
@@ -623,8 +645,11 @@ elif page == "✏️ CRUD Operations":
 
         elif operation == "🗑️ Delete":
             st.subheader("🗑️ Delete Loan")
-            loan_id = st.text_input("Loan ID")
-            if loan_id:
+            all_loans = run_query("SELECT l.loan_id, c.name, l.loan_type, l.loan_status FROM loans l JOIN customers c ON l.customer_id=c.customer_id ORDER BY l.loan_id")
+            opts = ["-- Select Loan --"] + [f"{r['loan_id']} — {r['name']} | {r['loan_type']} ({r['loan_status']})" for _, r in all_loans.iterrows()]
+            chosen = st.selectbox("🔍 Select Loan to Delete", opts, key="loan_delete")
+            if chosen != "-- Select Loan --":
+                loan_id = chosen.split(" — ")[0]
                 df = run_query("SELECT * FROM loans WHERE loan_id=%s", (loan_id,))
                 if not df.empty:
                     st.dataframe(df, use_container_width=True, hide_index=True)
@@ -654,22 +679,26 @@ elif page == "✏️ CRUD Operations":
                     "INSERT INTO branches (branch_name,city,manager_name,total_employees,branch_revenue,opening_date,performance_rating) VALUES (%s,%s,%s,%s,%s,%s,%s)",
                     (bname, city, manager, emp, revenue, str(open_date), rating)
                 )
-                if ok: st.success("✅ Branch added!")
-
         elif operation == "👁️ Read":
             st.subheader("👁️ View Branches")
-            bid = st.text_input("Branch ID (leave blank to show all)")
+            all_br = run_query("SELECT branch_id, branch_name, city FROM branches ORDER BY branch_id")
+            opts = ["-- Show All --"] + [f"{r['branch_id']} — {r['branch_name']}, {r['city']}" for _, r in all_br.iterrows()]
+            chosen = st.selectbox("🔍 Select Branch", opts, key="br_read")
             if st.button("🔍 Search", type="primary"):
-                if bid:
-                    df = run_query("SELECT * FROM branches WHERE branch_id=%s", (bid,))
-                else:
+                if chosen == "-- Show All --":
                     df = run_query("SELECT * FROM branches LIMIT 50")
+                else:
+                    bid = chosen.split(" — ")[0]
+                    df = run_query("SELECT * FROM branches WHERE branch_id=%s", (bid,))
                 st.dataframe(df, use_container_width=True, hide_index=True) if not df.empty else st.warning("Not found!")
 
         elif operation == "✏️ Update":
             st.subheader("✏️ Update Branch")
-            bid = st.text_input("Branch ID")
-            if bid:
+            all_br = run_query("SELECT branch_id, branch_name, city FROM branches ORDER BY branch_id")
+            opts = ["-- Select Branch --"] + [f"{r['branch_id']} — {r['branch_name']}, {r['city']}" for _, r in all_br.iterrows()]
+            chosen = st.selectbox("🔍 Select Branch to Update", opts, key="br_update")
+            if chosen != "-- Select Branch --":
+                bid = chosen.split(" — ")[0]
                 df = run_query("SELECT * FROM branches WHERE branch_id=%s", (bid,))
                 if not df.empty:
                     st.dataframe(df, use_container_width=True, hide_index=True)
@@ -690,8 +719,11 @@ elif page == "✏️ CRUD Operations":
 
         elif operation == "🗑️ Delete":
             st.subheader("🗑️ Delete Branch")
-            bid = st.text_input("Branch ID")
-            if bid:
+            all_br = run_query("SELECT branch_id, branch_name, city FROM branches ORDER BY branch_id")
+            opts = ["-- Select Branch --"] + [f"{r['branch_id']} — {r['branch_name']}, {r['city']}" for _, r in all_br.iterrows()]
+            chosen = st.selectbox("🔍 Select Branch to Delete", opts, key="br_delete")
+            if chosen != "-- Select Branch --":
+                bid = chosen.split(" — ")[0]
                 df = run_query("SELECT * FROM branches WHERE branch_id=%s", (bid,))
                 if not df.empty:
                     st.dataframe(df, use_container_width=True, hide_index=True)
@@ -702,6 +734,7 @@ elif page == "✏️ CRUD Operations":
                 else:
                     st.warning("⚠️ Not found!")
 
+    # ══ SUPPORT TICKETS ══
     # ══ SUPPORT TICKETS ══
     elif table_choice == "support_tickets":
         if operation == "➕ Create":
@@ -728,22 +761,26 @@ elif page == "✏️ CRUD Operations":
                      str(date.today()), 'Not Closed', priority, status,
                      'Pending', agent, channel, rating)
                 )
-                if ok: st.success("✅ Ticket added!")
-
         elif operation == "👁️ Read":
             st.subheader("👁️ View Support Ticket")
-            tid = st.text_input("Ticket ID (leave blank for open tickets)")
+            all_tkt = run_query("SELECT s.ticket_id, c.name, s.issue_category, s.status FROM support_tickets s JOIN customers c ON s.customer_id=c.customer_id ORDER BY s.ticket_id")
+            opts = ["-- Show All --"] + [f"{r['ticket_id']} — {r['name']} | {r['issue_category']} ({r['status']})" for _, r in all_tkt.iterrows()]
+            chosen = st.selectbox("🔍 Select Ticket", opts, key="tkt_read")
             if st.button("🔍 Search", type="primary"):
-                if tid:
-                    df = run_query("SELECT * FROM support_tickets WHERE ticket_id=%s", (tid,))
+                if chosen == "-- Show All --":
+                    df = run_query("SELECT * FROM support_tickets LIMIT 50")
                 else:
-                    df = run_query("SELECT * FROM support_tickets WHERE status='Open' LIMIT 50")
+                    tid = chosen.split(" — ")[0]
+                    df = run_query("SELECT * FROM support_tickets WHERE ticket_id=%s", (tid,))
                 st.dataframe(df, use_container_width=True, hide_index=True) if not df.empty else st.warning("Not found!")
 
         elif operation == "✏️ Update":
             st.subheader("✏️ Update Ticket Status")
-            tid = st.text_input("Ticket ID")
-            if tid:
+            all_tkt = run_query("SELECT s.ticket_id, c.name, s.issue_category, s.status FROM support_tickets s JOIN customers c ON s.customer_id=c.customer_id ORDER BY s.ticket_id")
+            opts = ["-- Select Ticket --"] + [f"{r['ticket_id']} — {r['name']} | {r['issue_category']} ({r['status']})" for _, r in all_tkt.iterrows()]
+            chosen = st.selectbox("🔍 Select Ticket to Update", opts, key="tkt_update")
+            if chosen != "-- Select Ticket --":
+                tid = chosen.split(" — ")[0]
                 df = run_query("SELECT * FROM support_tickets WHERE ticket_id=%s", (tid,))
                 if not df.empty:
                     st.dataframe(df, use_container_width=True, hide_index=True)
@@ -764,8 +801,11 @@ elif page == "✏️ CRUD Operations":
 
         elif operation == "🗑️ Delete":
             st.subheader("🗑️ Delete Ticket")
-            tid = st.text_input("Ticket ID")
-            if tid:
+            all_tkt = run_query("SELECT s.ticket_id, c.name, s.issue_category, s.status FROM support_tickets s JOIN customers c ON s.customer_id=c.customer_id ORDER BY s.ticket_id")
+            opts = ["-- Select Ticket --"] + [f"{r['ticket_id']} — {r['name']} | {r['issue_category']} ({r['status']})" for _, r in all_tkt.iterrows()]
+            chosen = st.selectbox("🔍 Select Ticket to Delete", opts, key="tkt_delete")
+            if chosen != "-- Select Ticket --":
+                tid = chosen.split(" — ")[0]
                 df = run_query("SELECT * FROM support_tickets WHERE ticket_id=%s", (tid,))
                 if not df.empty:
                     st.dataframe(df, use_container_width=True, hide_index=True)
@@ -776,6 +816,7 @@ elif page == "✏️ CRUD Operations":
                 else:
                     st.warning("⚠️ Not found!")
 
+    # ══ CREDIT CARDS ══
     # ══ CREDIT CARDS ══
     elif table_choice == "credit_cards":
         if operation == "➕ Create":
@@ -809,12 +850,26 @@ elif page == "✏️ CRUD Operations":
                     df = run_query("SELECT * FROM credit_cards WHERE customer_id=%s", (cid,))
                 else:
                     df = run_query("SELECT * FROM credit_cards WHERE status='Active' LIMIT 50")
+        elif operation == "👁️ Read":
+            st.subheader("👁️ View Credit Cards")
+            all_cc = run_query("SELECT cc.card_id, c.name, cc.card_type, cc.status FROM credit_cards cc JOIN customers c ON cc.customer_id=c.customer_id ORDER BY cc.card_id")
+            opts = ["-- Show All --"] + [f"{r['card_id']} — {r['name']} | {r['card_type']} ({r['status']})" for _, r in all_cc.iterrows()]
+            chosen = st.selectbox("🔍 Select Card", opts, key="cc_read")
+            if st.button("🔍 Search", type="primary"):
+                if chosen == "-- Show All --":
+                    df = run_query("SELECT * FROM credit_cards LIMIT 50")
+                else:
+                    card_id = chosen.split(" — ")[0]
+                    df = run_query("SELECT * FROM credit_cards WHERE card_id=%s", (card_id,))
                 st.dataframe(df, use_container_width=True, hide_index=True) if not df.empty else st.warning("Not found!")
 
         elif operation == "✏️ Update":
             st.subheader("✏️ Update Card Status")
-            card_id = st.text_input("Card ID")
-            if card_id:
+            all_cc = run_query("SELECT cc.card_id, c.name, cc.card_type, cc.status FROM credit_cards cc JOIN customers c ON cc.customer_id=c.customer_id ORDER BY cc.card_id")
+            opts = ["-- Select Card --"] + [f"{r['card_id']} — {r['name']} | {r['card_type']} ({r['status']})" for _, r in all_cc.iterrows()]
+            chosen = st.selectbox("🔍 Select Card to Update", opts, key="cc_update")
+            if chosen != "-- Select Card --":
+                card_id = chosen.split(" — ")[0]
                 df = run_query("SELECT * FROM credit_cards WHERE card_id=%s", (card_id,))
                 if not df.empty:
                     st.dataframe(df, use_container_width=True, hide_index=True)
@@ -829,8 +884,11 @@ elif page == "✏️ CRUD Operations":
 
         elif operation == "🗑️ Delete":
             st.subheader("🗑️ Delete Credit Card")
-            card_id = st.text_input("Card ID")
-            if card_id:
+            all_cc = run_query("SELECT cc.card_id, c.name, cc.card_type, cc.status FROM credit_cards cc JOIN customers c ON cc.customer_id=c.customer_id ORDER BY cc.card_id")
+            opts = ["-- Select Card --"] + [f"{r['card_id']} — {r['name']} | {r['card_type']} ({r['status']})" for _, r in all_cc.iterrows()]
+            chosen = st.selectbox("🔍 Select Card to Delete", opts, key="cc_delete")
+            if chosen != "-- Select Card --":
+                card_id = chosen.split(" — ")[0]
                 df = run_query("SELECT * FROM credit_cards WHERE card_id=%s", (card_id,))
                 if not df.empty:
                     st.dataframe(df, use_container_width=True, hide_index=True)
@@ -840,7 +898,6 @@ elif page == "✏️ CRUD Operations":
                         if ok: st.success("✅ Card deleted!")
                 else:
                     st.warning("⚠️ Not found!")
-
 
 # ══════════════════════════════════════════════
 # PAGE 5 — CREDIT / DEBIT SIMULATION
@@ -975,7 +1032,7 @@ elif page == "🧠 Analytical Insights":
                 """,
             },
             "Q3 — Top 10 customers by account balance": {
-                "desc": "Who are the top 10 customers by total account balance?",
+                "desc": "Who are the top 10 customers by total account balance across all acount types?",
                 "sql":  """
                     SELECT c.name,
                            c.account_type,
@@ -1067,33 +1124,29 @@ elif page == "🧠 Analytical Insights":
             "Q10 — Customers with multiple active/approved loans": {
                 "desc": "Which customers currently hold more than one active or approved loan?",
                 "sql":  """
-                    SELECT
-                        l.customer_id                               AS customer_id,
-                        COUNT(l.loan_id)                           AS no_of_active_loans,
-                        GROUP_CONCAT(l.loan_type, ' | ')           AS loan_types_held,
-                        ROUND(SUM(l.loan_amount), 2)               AS total_loan_amount,
-                        ROUND(AVG(l.interest_rate), 2)             AS avg_interest_rate
-                    FROM loans l
+                    SELECT c.name,
+                           COUNT(l.loan_id)            AS active_loans,
+                           ROUND(SUM(l.loan_amount),2) AS total_loan_amount
+                    FROM loans    l
+                    JOIN customers c ON l.customer_id = c.customer_id
                     WHERE LOWER(l.loan_status) IN ('active', 'approved')
-                    GROUP BY l.customer_id
+                    GROUP BY l.customer_id, c.name
                     HAVING COUNT(l.loan_id) > 1
-                    ORDER BY no_of_active_loans DESC, total_loan_amount DESC
-                    LIMIT 20
+                    ORDER BY active_loans DESC
+                    LIMIT 15
                 """,
             },
             "Q11 — Top 5 customers with highest outstanding loans": {
-                "desc": "Who are the top 5 customers with the highest non-closed outstanding loan amounts?",
+                "desc": "Who are the top 5 customers with the highest (non-closed) outstanding loan amounts?",
                 "sql":  """
-                    SELECT
-                        l.customer_id                                AS customer_id,
-                        COUNT(l.loan_id)                            AS number_of_loans,
-                        GROUP_CONCAT(l.loan_type, ' | ')            AS loan_types,
-                        GROUP_CONCAT(DISTINCT l.loan_status)        AS loan_statuses,
-                        ROUND(SUM(l.loan_amount), 2)                AS total_outstanding_amount
-                    FROM loans l
+                    SELECT c.name,
+                           COUNT(l.loan_id)            AS loan_count,
+                           ROUND(SUM(l.loan_amount),2) AS total_outstanding
+                    FROM loans    l
+                    JOIN customers c ON l.customer_id = c.customer_id
                     WHERE LOWER(l.loan_status) != 'closed'
-                    GROUP BY l.customer_id
-                    ORDER BY total_outstanding_amount DESC
+                    GROUP BY l.customer_id, c.name
+                    ORDER BY total_outstanding DESC
                     LIMIT 5
                 """,
             },
@@ -1150,7 +1203,7 @@ elif page == "🧠 Analytical Insights":
                 """,
             },
             "Q15 — Best agents for critical tickets (rating ≥ 4)": {
-                "desc": "Which support agents resolved the most critical tickets with customer rating ≥ 4?",
+                "desc": "Which support agents resolved the most critical tickets with customer rating (≥ 4)?",
                 "sql":  """
                     SELECT support_agent,
                            COUNT(*)                      AS resolved_critical,
@@ -1177,254 +1230,20 @@ elif page == "🧠 Analytical Insights":
 
     st.info(f"💡 **{q['desc']}**")
 
-    col1, col2 = st.columns([1, 1])
 
-    # ── TABLE ─────────────────────────────────────────────────
-    with col1:
-        st.subheader("📋 Query Results")
-        if df.empty:
-            st.warning("⚠️ No data returned. Check that your database is populated.")
-        else:
-            st.dataframe(df, use_container_width=True, hide_index=True)
-            st.caption(f"Rows returned: {len(df)}")
-            st.download_button("⬇️ Download CSV", df.to_csv(index=False),
-                               f"{q_name[:3].strip()}.csv", "text/csv")
-
-    # ── VISUALIZATION ─────────────────────────────────────────
-    with col2:
-        st.subheader("📊 Visualization")
-        if df.empty:
-            st.info("No data to visualize.")
-
-        # Q10 — dual axis: customer_id vs no_of_active_loans (bar) + total_loan_amount (line)
-        elif q_name.startswith("Q10"):
-            import plotly.graph_objects as go
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                x=df["customer_id"].astype(str),
-                y=df["no_of_active_loans"],
-                name="No. of Active Loans",
-                marker_color="#1565C0",
-                text=df["no_of_active_loans"],
-                textposition="outside",
-                yaxis="y1"
-            ))
-            fig.add_trace(go.Scatter(
-                x=df["customer_id"].astype(str),
-                y=df["total_loan_amount"],
-                name="Total Loan Amount (₹)",
-                mode="lines+markers",
-                marker=dict(color="#E53935", size=8),
-                line=dict(color="#E53935", width=2),
-                yaxis="y2"
-            ))
-            fig.update_layout(
-                title="Customers with Multiple Active / Approved Loans",
-                xaxis=dict(title="Customer ID", tickangle=-35),
-                yaxis=dict(title="No. of Active Loans", side="left",
-                           showgrid=True, gridcolor="#E0E0E0"),
-                yaxis2=dict(title="Total Loan Amount (₹)", side="right",
-                            overlaying="y", showgrid=False),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                height=450, plot_bgcolor="white", paper_bgcolor="white"
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Q11 — horizontal bar: customer_id vs total_outstanding_amount
-        elif q_name.startswith("Q11"):
-            import plotly.graph_objects as go
-            df_sorted = df.sort_values("total_outstanding_amount", ascending=True)
-            bar_colors = ["#b71c1c","#c62828","#d32f2f","#e53935","#ef5350"]
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                y=df_sorted["customer_id"].astype(str),
-                x=df_sorted["total_outstanding_amount"],
-                orientation="h",
-                marker_color=bar_colors[:len(df_sorted)],
-                text=[f"₹{v:,.0f}  ({lc} loan(s))"
-                      for v, lc in zip(df_sorted["total_outstanding_amount"],
-                                       df_sorted["number_of_loans"])],
-                textposition="inside",
-                insidetextanchor="middle",
-                textfont=dict(color="white", size=11)
-            ))
-            fig.update_layout(
-                title="Top 5 Customers — Highest Outstanding Loan Amount",
-                xaxis=dict(title="Total Outstanding Amount (₹)",
-                           tickformat=",.0f", showgrid=True, gridcolor="#E0E0E0"),
-                yaxis=dict(title="Customer ID"),
-                height=430, plot_bgcolor="white", paper_bgcolor="white"
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Q12 — bar: branch vs avg_loan_amount
-        elif q_name.startswith("Q12"):
-            fig = px.bar(df, x="branch", y="avg_loan_amount",
-                         color="branch",
-                         color_discrete_sequence=px.colors.qualitative.Set3,
-                         title="Average Loan Amount per Branch",
-                         labels={"branch":"Branch",
-                                 "avg_loan_amount":"Avg Loan Amount (₹)"})
-            fig.update_layout(showlegend=False, xaxis_tickangle=-30, height=430,
-                              plot_bgcolor="white", paper_bgcolor="white")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Q13 — pie: age group distribution
-        elif q_name.startswith("Q13"):
-            fig = px.pie(df, names="age_group", values="total_customers",
-                         color_discrete_sequence=px.colors.qualitative.Pastel,
-                         title="Customer Distribution by Age Group")
-            fig.update_traces(textposition="inside",
-                              textinfo="percent+label+value")
-            fig.update_layout(height=430, paper_bgcolor="white")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Q14 — bar: issue category vs avg days, orange gradient
-        elif q_name.startswith("Q14"):
-            fig = px.bar(df, x="issue_category", y="avg_days_to_resolve",
-                         color="avg_days_to_resolve",
-                         color_continuous_scale="Oranges",
-                         title="Avg Resolution Time by Issue Category",
-                         labels={"issue_category":"Issue Category",
-                                 "avg_days_to_resolve":"Avg Days to Resolve"})
-            fig.update_layout(showlegend=False, xaxis_tickangle=-30, height=430,
-                              plot_bgcolor="white", paper_bgcolor="white")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Q15 — bar: support agent vs resolved count, colour = avg_rating
-        elif q_name.startswith("Q15"):
-            fig = px.bar(df, x="support_agent", y="resolved_critical",
-                         color="avg_rating",
-                         color_continuous_scale="Greens",
-                         title="Best Agents — Critical Tickets (Rating ≥ 4)",
-                         labels={"support_agent":"Support Agent",
-                                 "resolved_critical":"Critical Tickets Resolved",
-                                 "avg_rating":"Avg Rating"})
-            fig.update_layout(xaxis_tickangle=-30, height=430,
-                              plot_bgcolor="white", paper_bgcolor="white")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Q1 — grouped bar: city vs total_customers AND avg_balance
-        elif q_name.startswith("Q1"):
-            df_m = df.melt(id_vars="city",
-                           value_vars=["total_customers","avg_balance"],
-                           var_name="Metric", value_name="Value")
-            fig = px.bar(df_m, x="city", y="Value", color="Metric",
-                         barmode="group",
-                         color_discrete_map={"total_customers":"#2196F3",
-                                             "avg_balance":"#FF9800"},
-                         title="Customers & Avg Balance per City",
-                         labels={"city":"City","Value":"Value","Metric":"Metric"})
-            fig.update_layout(xaxis_tickangle=-35, height=430,
-                              legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                              plot_bgcolor="white", paper_bgcolor="white")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Q2 — bar: account type vs total_balance, labelled with customer count
-        elif q_name.startswith("Q2"):
-            fig = px.bar(df, x="account_type", y="total_balance",
-                         color="account_type", text="total_customers",
-                         color_discrete_sequence=["#4CAF50","#2196F3"],
-                         title="Total Balance by Account Type",
-                         labels={"account_type":"Account Type",
-                                 "total_balance":"Total Balance (₹)"})
-            fig.update_traces(texttemplate="👥 %{text} customers",
-                              textposition="outside")
-            fig.update_layout(showlegend=False, height=430,
-                              plot_bgcolor="white", paper_bgcolor="white")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Q3 — horizontal bar: name vs balance, colour = account_type
-        elif q_name.startswith("Q3"):
-            fig = px.bar(df, x="account_balance", y="name",
-                         color="account_type", orientation="h",
-                         color_discrete_sequence=["#4CAF50","#2196F3"],
-                         title="Top 10 Customers by Account Balance",
-                         labels={"account_balance":"Balance (₹)",
-                                 "name":"Customer Name",
-                                 "account_type":"Account Type"})
-            fig.update_layout(height=430, yaxis=dict(autorange="reversed"),
-                              plot_bgcolor="white", paper_bgcolor="white")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Q4 — bar: customer name vs balance, colour = account_type
-        elif q_name.startswith("Q4"):
-            if not df.empty:
-                fig = px.bar(df, x="name", y="account_balance",
-                             color="account_type",
-                             color_discrete_sequence=["#9C27B0","#FF5722"],
-                             title="2023 Joiners with Balance > ₹1,00,000",
-                             labels={"name":"Customer Name",
-                                     "account_balance":"Balance (₹)",
-                                     "account_type":"Account Type"})
-                fig.update_layout(xaxis_tickangle=-35, height=430,
-                                  plot_bgcolor="white", paper_bgcolor="white")
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No customers found for this criteria.")
-
-        # Q5 — bar: transaction type vs total volume
-        elif q_name.startswith("Q5"):
-            fig = px.bar(df, x="transaction_type", y="total_transaction_volume",
-                         color="transaction_type",
-                         color_discrete_sequence=px.colors.qualitative.Set2,
-                         title="Total Transaction Volume (₹) by Type",
-                         labels={"transaction_type":"Transaction Type",
-                                 "total_transaction_volume":"Total Volume (₹)"})
-            fig.update_layout(showlegend=False, xaxis_tickangle=-30, height=430,
-                              plot_bgcolor="white", paper_bgcolor="white")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Q6 — bar: transaction type vs failed count
-        elif q_name.startswith("Q6"):
-            fig = px.bar(df, x="transaction_type", y="failed_transactions",
-                         color="transaction_type",
-                         color_discrete_sequence=px.colors.qualitative.Set1,
-                         title="Failed Transactions per Transaction Type",
-                         labels={"transaction_type":"Transaction Type",
-                                 "failed_transactions":"Failed Count"})
-            fig.update_layout(showlegend=False, xaxis_tickangle=-30, height=430,
-                              plot_bgcolor="white", paper_bgcolor="white")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Q7 — pie: transaction type share of total count
-        elif q_name.startswith("Q7"):
-            fig = px.pie(df, names="transaction_type", values="total_transactions",
-                         color_discrete_sequence=px.colors.qualitative.Pastel,
-                         title="Total Transactions per Type")
-            fig.update_traces(textposition="inside",
-                              textinfo="percent+label+value")
-            fig.update_layout(height=430, paper_bgcolor="white")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Q8 — bar: name vs high_value_count, colour = account_type
-        elif q_name.startswith("Q8"):
-            fig = px.bar(df, x="name", y="high_value_count",
-                         color="account_type",
-                         color_discrete_sequence=px.colors.qualitative.Bold,
-                         title="Accounts with 5+ High-Value Transactions (>₹20K)",
-                         labels={"name":"Customer Name",
-                                 "high_value_count":"High-Value Txn Count",
-                                 "account_type":"Account Type"})
-            fig.update_layout(xaxis_tickangle=-30, height=430,
-                              plot_bgcolor="white", paper_bgcolor="white")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Q9 — grouped bar: loan type vs avg_loan_amount AND avg_interest_rate
-        elif q_name.startswith("Q9"):
-            df_m = df.melt(id_vars="loan_type",
-                           value_vars=["avg_loan_amount","avg_interest_rate"],
-                           var_name="Metric", value_name="Value")
-            fig = px.bar(df_m, x="loan_type", y="Value", color="Metric",
-                         barmode="group",
-                         color_discrete_map={"avg_loan_amount":"#3F51B5",
-                                             "avg_interest_rate":"#E91E63"},
-                         title="Avg Loan Amount & Interest Rate by Loan Type",
-                         labels={"loan_type":"Loan Type","Value":"Value"})
-            fig.update_layout(xaxis_tickangle=-30, height=430,
-                              legend=dict(orientation="h", yanchor="bottom", y=1.02),
-                              plot_bgcolor="white", paper_bgcolor="white")
-            st.plotly_chart(fig, use_container_width=True)
+    # ── QUERY RESULTS TABLE ───────────────────────────────────
+    st.subheader("📋 Query Results")
+    if df.empty:
+        st.warning("No data returned. Check that your database is populated.")
+    else:
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        st.caption(f"Rows returned: {len(df)}")
+        st.download_button(
+            "⬇️ Download CSV",
+            df.to_csv(index=False),
+            f"{q_name[:3].strip()}.csv",
+            "text/csv"
+        )
 
     st.markdown("---")
     st.subheader("🔍 SQL Query Used")
@@ -1445,15 +1264,15 @@ elif page == "👩‍💻 About Creator":
             st.image("https://img.icons8.com/color/200/user-female-circle--v1.png", width=220)
 
         st.markdown("### 🏆 Skills")
-        skills = ["Python", "MySQL", "Streamlit", "Data Analysis",
-                  "Machine Learning", "Pandas", "Plotly", "Banking Analytics",
-                  "Artificial Intelligence", "Biomedical Engineering"]
+        skills = ["Python", "SQL", "Streamlit", "Data Analysis",
+                   "Pandas", "Plotly", "Banking Analytics",
+                  "Artificial Intelligence"]
         for s in skills:
             st.markdown(f"✅ {s}")
 
     with col2:
         st.markdown("## 👤 KAVYA S")
-        st.markdown("### 🎓 BE Biomedical Engineering · Minor in AI & Data Science")
+        st.markdown("### 🎓 BE Biomedical Engineering · Minor in AI & DS")
 
         st.markdown("""
 **About Me:**
@@ -1486,7 +1305,7 @@ analytics platform.
         with c2:
             st.markdown("🐙 **GitHub:** [Kavya1245](https://github.com/Kavya1245)")
             st.markdown("🏙️ **Location:** TamilNadu, India")
-            st.markdown("🎓 **Education:** BE Biomedical Engg · Minor in AI & Data Science")
+            st.markdown("🎓 **Education:** BE Biomedical Engg · Minor in AI & DS")
 
     st.markdown("---")
     st.subheader("📊 Project Summary")

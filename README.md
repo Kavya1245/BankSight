@@ -126,7 +126,7 @@ BankSight/
 
 ### ✏️ 4. CRUD Operations
 Full **Create / Read / Update / Delete** for all 7 tables:
-- `customers` — dropdown selector for safe update/delete
+- `customers` — selector for safe update/delete
 - `accounts` — balance management
 - `transactions` — status and amount updates
 - `loans` — loan status tracking
@@ -229,7 +229,7 @@ The app will open at `http://localhost:8501`
 
 ## 🌐 Live Demo
 
-🔗 **[Click here to view the live app](https://kavya1245-banksight.streamlit.app)**
+🔗 **[Click here to view the live app](https://kavya1245-banksight-app-rbbwpl.streamlit.app/)**
 
 > Deployed on Streamlit Cloud — no installation required.
 

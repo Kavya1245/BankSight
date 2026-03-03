@@ -2,17 +2,15 @@ import pandas as pd
 import sqlite3
 import os
 
-# ─────────────────────────────────────────────
 # Paths
-# ─────────────────────────────────────────────
+
 CLEANED_DIR = "data/cleaned"
 DB_PATH     = "database/banksight.db"
 
 os.makedirs("database", exist_ok=True)
 
-# ─────────────────────────────────────────────
 # Connect to SQLite
-# ─────────────────────────────────────────────
+
 conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
@@ -20,14 +18,12 @@ print("=" * 60)
 print("  BankSight — Database Creation & Loading")
 print("=" * 60)
 
-# ─────────────────────────────────────────────
 # Enable foreign keys
-# ─────────────────────────────────────────────
+
 cursor.execute("PRAGMA foreign_keys = ON;")
 
-# ─────────────────────────────────────────────
 # Drop existing tables (clean slate)
-# ─────────────────────────────────────────────
+
 TABLES = [
     "support_tickets", "credit_cards", "loans",
     "transactions", "accounts", "branches", "customers"
@@ -37,9 +33,7 @@ for t in TABLES:
 conn.commit()
 print("\n🗑️  Dropped existing tables (if any)")
 
-# ─────────────────────────────────────────────
 # CREATE TABLES
-# ─────────────────────────────────────────────
 
 cursor.executescript("""
 
@@ -140,9 +134,7 @@ CREATE TABLE IF NOT EXISTS support_tickets (
 conn.commit()
 print("✅ All tables created successfully\n")
 
-# ─────────────────────────────────────────────
 # LOAD DATA
-# ─────────────────────────────────────────────
 
 def load_table(csv_file: str, table_name: str, required_cols: list = None):
     path = os.path.join(CLEANED_DIR, csv_file)
@@ -203,9 +195,8 @@ load_table("support_tickets_cleaned.csv", "support_tickets", [
 
 conn.commit()
 
-# ─────────────────────────────────────────────
 # VERIFY ROW COUNTS
-# ─────────────────────────────────────────────
+
 print("\n" + "─" * 60)
 print("  📊 Row Count Verification")
 print("─" * 60)
