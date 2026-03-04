@@ -1104,7 +1104,6 @@ elif page == "🧠 Analytical Insights":
                     GROUP BY t.customer_id, c.name, c.account_type
                     HAVING COUNT(*) >= 5
                     ORDER BY high_value_count DESC
-                    LIMIT 15
                 """,
             },
         },
@@ -1124,28 +1123,30 @@ elif page == "🧠 Analytical Insights":
             "Q10 — Customers with multiple active/approved loans": {
                 "desc": "Which customers currently hold more than one active or approved loan?",
                 "sql":  """
-                    SELECT c.name,
-                           COUNT(l.loan_id)            AS active_loans,
-                           ROUND(SUM(l.loan_amount),2) AS total_loan_amount
+                    SELECT l.customer_id,
+                           COUNT(l.loan_id)                    AS active_loans,
+                           GROUP_CONCAT(l.loan_type, ' | ')    AS loan_types_held,
+                           ROUND(SUM(l.loan_amount),2)         AS total_loan_amount,
+                           ROUND(AVG(l.interest_rate), 2)      AS avg_interest_rate
                     FROM loans    l
-                    JOIN customers c ON l.customer_id = c.customer_id
                     WHERE LOWER(l.loan_status) IN ('active', 'approved')
-                    GROUP BY l.customer_id, c.name
+                    GROUP BY l.customer_id
                     HAVING COUNT(l.loan_id) > 1
-                    ORDER BY active_loans DESC
-                    LIMIT 15
+                    ORDER BY active_loans DESC,total_loan_amount DESC
+                    LIMIT 20
                 """,
             },
             "Q11 — Top 5 customers with highest outstanding loans": {
                 "desc": "Who are the top 5 customers with the highest (non-closed) outstanding loan amounts?",
                 "sql":  """
-                    SELECT c.name,
-                           COUNT(l.loan_id)            AS loan_count,
-                           ROUND(SUM(l.loan_amount),2) AS total_outstanding
+                    SELECT l.customer_id,
+                           COUNT(l.loan_id)                        AS loan_count,
+                           GROUP_CONCAT(l.loan_type, ' | ')        AS loan_types,
+                           GROUP_CONCAT(DISTINCT l.loan_status)    AS loan_statuses,
+                           ROUND(SUM(l.loan_amount),2)             AS total_outstanding
                     FROM loans    l
-                    JOIN customers c ON l.customer_id = c.customer_id
                     WHERE LOWER(l.loan_status) != 'closed'
-                    GROUP BY l.customer_id, c.name
+                    GROUP BY l.customer_id
                     ORDER BY total_outstanding DESC
                     LIMIT 5
                 """,

@@ -134,8 +134,7 @@ Q8 = {
         WHERE t.amount > 20000
         GROUP BY t.customer_id
         HAVING COUNT(*) >= 5
-        ORDER BY high_value_count DESC
-        LIMIT 20;
+        ORDER BY high_value_count DESC;
     """
 }
 
